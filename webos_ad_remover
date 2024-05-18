@@ -105,7 +105,7 @@ create_recommended_override() {
     check_target_sums "recommended"
 
     # Then we copy the Recommended.qml file to our workdir.
-    cp $WAR_AI_BOARD_SOURCE "$WAR_WORKDIR/Recommended.qml"
+    cp $WAR_RECOMMENDED_SOURCE "$WAR_WORKDIR/Recommended.qml"
 
     # Finally we modify the file.
     sed -i '17 i return' "$WAR_WORKDIR/Recommended.qml"
