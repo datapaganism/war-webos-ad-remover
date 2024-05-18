@@ -11,6 +11,8 @@ set -e
 WAR_ENABLED=true
 # Modify WAR_USB_LOCATION to point to the mount point for your USB. If you have no other USB storage devices plugged in then leave the default setting.
 WAR_USB_LOCATION='/tmp/usb/sda/sda1'
+# Double check the checksum of the files on the FS compared to the script, due to the parsing of the file this no longer necessary but can be enabled if you wish 
+CHECKSUMS=false
 ############ END User Customizable ENV Variables. Advanced users only past this point.
 
 # This is the directory we will mount override files from.
@@ -33,7 +35,7 @@ check_target_sums() {
     # there are no unexpected results. Old versions of WebOS or updates may cause files to change, which will break this script.
     case $1 in
     "ai_board")
-        WAR_AI_BOARD_SUM="986fb371dd6a8edf5a5fa8479076011c2ad0375533c8aed997cf2d50254737d34b524732d745eafff5294c37bbf5b16d57c5f03b88d547d81eb0c18beb9d01e5  /usr/palm/applications/com.webos.app.home/qml/UserInterfaceLayer/Containers/Main/AIBoard.qml"
+        WAR_AI_BOARD_SUM="4cff08f7438bc55fe6f5010aebc4132c3da3a083dbf8baa7490c15a18a79be15b122516b579a5b0c2fcaa6359b712f3bf664975e87cfffec66efc9667fe14e5e  /usr/palm/applications/com.webos.app.home/qml/UserInterfaceLayer/Containers/Main/AIBoard.qml"
         WAR_AI_BOARD_CHECK=$(sha512sum $WAR_AI_BOARD_SOURCE)
 
         if [ "$WAR_AI_BOARD_SUM" != "$WAR_AI_BOARD_CHECK" ]; then
@@ -43,7 +45,7 @@ check_target_sums() {
         echo "Checksum matched!"
         ;;
     "recommended")
-        WAR_RECOMMENDED_SUM="1f41b67dc3603908c3aece24c9eae6798684f92cbc89ebd4594e0d786a90dddd9aa0c1c84b9a6142f07deb955dbbd5afbe1c6fef6ca29618267caa0920872e16  /usr/palm/applications/com.webos.app.home/qml/UserInterfaceLayer/Containers/Main/Recommended.qml"
+        WAR_RECOMMENDED_SUM="9846adf32fa0d4c99e9d4e19522140b41413770d7dd09dd0d167ea740a270f1b4b007901c24ff9c569ec9cceef0a9df2b0881be893fa172498897cb99c2d1290  /usr/palm/applications/com.webos.app.home/qml/UserInterfaceLayer/Containers/Main/Recommended.qml"
         WAR_RECOMMENDED_CHECK=$(sha512sum $WAR_RECOMMENDED_SOURCE)
 
         if [ "$WAR_RECOMMENDED_SUM" != "$WAR_RECOMMENDED_CHECK" ]; then
@@ -74,16 +76,26 @@ check_for_usb() {
     mkdir -p $WAR_WORKDIR
 }
 
-create_ai_board_override() {
+
+create_ai_board_override() {    
+    PATTERN="\b[A-Z]\S* {"
+    FILE=$WAR_WORKDIR/AIBoard.qml
+
     # This runs if the modified file is not found.
     # First we do a checksum.
-    check_target_sums "ai_board"
-
+    if [ $CHECKSUMS = true ]; then
+        check_target_sums "ai_board"
+    fi
+    
     # Then we copy the AIBoard.qml file to our workdir.
-    cp $WAR_AI_BOARD_SOURCE "$WAR_WORKDIR/AIBoard.qml"
+    cp $WAR_AI_BOARD_SOURCE "$FILE"
+
+    # Find first line after scope opens
+    line=$(grep -n "$PATTERN" "$FILE" | cut -d: -f1 | head -1)
+    line=$((line+1))
 
     # Finally we modify the file.
-    sed -i '17 i return' "$WAR_WORKDIR/AIBoard.qml"
+    sed -i "${line}s/.*/return/" "$FILE"
 }
 
 remove_ai_board() {
@@ -99,17 +111,27 @@ remove_ai_board() {
     mount --bind "$WAR_WORKDIR/AIBoard.qml" "$WAR_AI_BOARD_SOURCE"
 }
 
-create_recommended_override() {
+create_recommended_override() {    
+    PATTERN="\b[A-Z]\S* {"
+    FILE=$WAR_WORKDIR/Recommended.qml
+
     # This runs if the modified file is not found.
     # First we do a checksum.
-    check_target_sums "recommended"
+    if [ $CHECKSUMS = true ]; then
+        check_target_sums "recommended"
+    fi
 
     # Then we copy the Recommended.qml file to our workdir.
-    cp $WAR_RECOMMENDED_SOURCE "$WAR_WORKDIR/Recommended.qml"
+    cp $WAR_RECOMMENDED_SOURCE "$FILE"
+
+    # Find first line after scope opens
+    line=$(grep -n "$PATTERN" "$FILE" | cut -d: -f1 | head -1)
+    line=$((line+1))
 
     # Finally we modify the file.
-    sed -i '17 i return' "$WAR_WORKDIR/Recommended.qml"
+    sed -i "${line}s/.*/return/" "$FILE"
 }
+
 
 remove_recommended() {
     # First we check if the Recommended.qml file exists on the USB.
